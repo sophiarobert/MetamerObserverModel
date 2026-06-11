@@ -26,6 +26,7 @@
 function [newX,snr1,snr2,Mx,My] = adjustCorr2s(X, Cx, Y, Cxy, mode, p)
 
 Warn = 0; % Set to 1 if you want to display warning messages
+epsReg = 1e-8;
 if (exist('mode') ~= 1)
   mode = 3;
 end
@@ -36,7 +37,8 @@ end
 Bx = innerProd(X) / size(X,1);
 Bxy = (X' * Y) / size(X,1);
 By = innerProd(Y) / size(X,1);
-iBy = inv(By);
+By = (By + By')/2;
+iBy = pinv(By + epsReg*eye(size(By)));
 
 Current = Bx - (Bxy * iBy * Bxy');
 Cx0 = Cx;
@@ -52,7 +54,8 @@ if any(D < 0) & Warn
   fprintf(1,'Warning: negative current eigenvalues: %d\n',D(ind)');
 end
 [junk,Ind] = sort(D);
-D = diag(sqrt(D(Ind(size(Ind,1):-1:1))));
+D = max(real(D(Ind(size(Ind,1):-1:1))), epsReg);
+D = diag(sqrt(D));
 E = E(:,Ind(size(Ind,1):-1:1));
 
 [Eo,Do] = eig(Desired);
@@ -62,7 +65,8 @@ if any(Do < 0) & Warn
   fprintf(1,'Warning: negative desired eigenvalues: %d\n',Do(ind)');
 end
 [junk,Ind] = sort(Do);
-Do = diag(sqrt(Do(Ind(size(Ind,1):-1:1))));
+Do = max(real(Do(Ind(size(Ind,1):-1:1))), epsReg);
+Do = diag(sqrt(Do));
 Eo = Eo(:,Ind(size(Ind,1):-1:1));
 
 if (mode == 0)
@@ -79,11 +83,11 @@ elseif (mode == 3)
 else     % SVD
   A = [ eye(size(Cx)); -iBy*Bxy' ];
   Ao =  [ eye(size(Cx)); -iBy*Cxy' ];
-  [U,S,V] = svd(D * E' * pinv(A) * Ao * Eo * inv(Do));
+  [U,S,V] = svd(D * E' * pinv(A) * Ao * Eo * pinv(Do));
   Orth = U * V';
 end
 
-Mx =  E * inv(D) * Orth * Do * Eo';
+Mx =  E * pinv(D) * Orth * Do * Eo';
 My =  iBy * (Cxy' - Bxy' * Mx);
 newX = X * Mx + Y * My;
 

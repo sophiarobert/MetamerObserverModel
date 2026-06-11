@@ -21,6 +21,8 @@
 
 function [newX, snr1, M] = adjustCorr1s(X,Co,mode,p)
 
+epsReg = 1e-8;
+
 if (exist('mode') ~= 1)
   mode = 2;
 end
@@ -33,7 +35,8 @@ C = innerProd(X) / size(X,1);
 [E, D] = eig(C);
 D = diag(D);
 [junk,Ind] = sort(D);
-D = diag(sqrt(D(Ind(size(Ind,1):-1:1))));
+D = max(real(D(Ind(size(Ind,1):-1:1))), epsReg);
+D = diag(sqrt(D));
 E = E(:,Ind(size(Ind,1):-1:1));
 
 Co0 = Co;
@@ -42,7 +45,8 @@ Co = (1-p)*C + p*Co;
 [Eo,Do] = eig(Co);
 Do = diag(Do);
 [junk,Ind] = sort(Do);
-Do = diag(sqrt(Do(Ind(size(Ind,1):-1:1))));
+Do = max(real(Do(Ind(size(Ind,1):-1:1))), epsReg);
+Do = diag(sqrt(Do));
 Eo = Eo(:,Ind(size(Ind,1):-1:1));
 
 if (mode == 0)
@@ -52,11 +56,11 @@ elseif (mode == 1) % eye
 elseif (mode == 2) % simple
   Orth = E' * Eo;
 else     % SVD
-  [U,S,V] = svd(D * E' * Eo * inv(Do));
+  [U,S,V] = svd(D * E' * Eo * pinv(Do));
   Orth = U * V';
 end
 
-M =  E * inv(D) * Orth * Do * Eo';
+M =  E * pinv(D) * Orth * Do * Eo';
 
 newX = X * M;
 
